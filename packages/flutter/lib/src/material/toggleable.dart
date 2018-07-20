@@ -25,11 +25,11 @@ abstract class RenderToggleable extends RenderConstrainedBox {
   /// null. The [value] can only be null if tristate is true.
   RenderToggleable({
     @required bool value,
-    bool tristate: false,
-    Size size,
+    bool tristate = false,
     @required Color activeColor,
     @required Color inactiveColor,
     ValueChanged<bool> onChanged,
+    BoxConstraints additionalConstraints,
     @required TickerProvider vsync,
   }) : assert(tristate != null),
        assert(tristate || value != null),
@@ -42,7 +42,7 @@ abstract class RenderToggleable extends RenderConstrainedBox {
        _inactiveColor = inactiveColor,
        _onChanged = onChanged,
        _vsync = vsync,
-       super(additionalConstraints: new BoxConstraints.tight(size)) {
+       super(additionalConstraints: additionalConstraints) {
     _tap = new TapGestureRecognizer()
       ..onTapDown = _handleTapDown
       ..onTap = _handleTap
@@ -134,13 +134,20 @@ abstract class RenderToggleable extends RenderConstrainedBox {
     _position
       ..curve = Curves.easeIn
       ..reverseCurve = Curves.easeOut;
-    switch (_positionController.status) {
-      case AnimationStatus.forward:
-      case AnimationStatus.completed:
-        _positionController.reverse();
-        break;
-      default:
+    if (tristate) {
+      switch (_positionController.status) {
+        case AnimationStatus.forward:
+        case AnimationStatus.completed:
+          _positionController.reverse();
+          break;
+        default:
+          _positionController.forward();
+      }
+    } else {
+      if (value == true)
         _positionController.forward();
+      else
+        _positionController.reverse();
     }
   }
 
@@ -257,8 +264,7 @@ abstract class RenderToggleable extends RenderConstrainedBox {
     if (isInteractive && !tristate) {
       if (status == AnimationStatus.completed && _value == false) {
         onChanged(true);
-      }
-      else if (status == AnimationStatus.dismissed && _value != false) {
+      } else if (status == AnimationStatus.dismissed && _value != false) {
         onChanged(false);
       }
     }
@@ -285,6 +291,7 @@ abstract class RenderToggleable extends RenderConstrainedBox {
         onChanged(false);
         break;
     }
+    sendSemanticsEvent(const TapSemanticEvent());
   }
 
   void _handleTapUp(TapUpDetails details) {
@@ -332,7 +339,7 @@ abstract class RenderToggleable extends RenderConstrainedBox {
     config.isEnabled = isInteractive;
     if (isInteractive)
       config.onTap = _handleTap;
-    config.isChecked = _value != false;
+    config.isChecked = _value == true;
   }
 
   @override

@@ -36,9 +36,9 @@ class TestRunner extends ResidentRunner {
   @override
   Future<int> run({
     Completer<DebugConnectionInfo> connectionInfoCompleter,
-    Completer<dynamic> appStartedCompleter,
+    Completer<void> appStartedCompleter,
     String route,
-    bool shouldBuild: true,
+    bool shouldBuild = true,
   }) => null;
 }
 

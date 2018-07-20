@@ -12,6 +12,7 @@ import '../base/version.dart';
 import '../doctor.dart';
 import 'cocoapods.dart';
 import 'mac.dart';
+import 'plist_utils.dart' as plist;
 
 IOSWorkflow get iosWorkflow => context[IOSWorkflow];
 
@@ -33,6 +34,10 @@ class IOSWorkflow extends DoctorValidator implements Workflow {
   @override
   bool get canListEmulators => false;
 
+  String getPlistValueFromFile(String path, String key) {
+    return plist.getValueFromFile(path, key);
+  }
+
   Future<bool> get hasIDeviceInstaller => exitsHappyAsync(<String>['ideviceinstaller', '-h']);
 
   Future<bool> get hasIosDeploy => exitsHappyAsync(<String>['ios-deploy', '--version']);
@@ -42,8 +47,6 @@ class IOSWorkflow extends DoctorValidator implements Workflow {
   Future<String> get iosDeployVersionText async => (await runAsync(<String>['ios-deploy', '--version'])).processResult.stdout.replaceAll('\n', '');
 
   bool get hasHomebrew => os.which('brew') != null;
-
-  bool get hasPythonSixModule => kPythonSix.isInstalled;
 
   Future<String> get macDevMode async => (await runAsync(<String>['DevToolsSecurity', '-status'])).processResult.stdout;
 
@@ -62,7 +65,6 @@ class IOSWorkflow extends DoctorValidator implements Workflow {
   Future<ValidationResult> validate() async {
     final List<ValidationMessage> messages = <ValidationMessage>[];
     ValidationType xcodeStatus = ValidationType.missing;
-    ValidationType pythonStatus = ValidationType.missing;
     ValidationType brewStatus = ValidationType.missing;
     String xcodeVersionInfo;
 
@@ -114,14 +116,6 @@ class IOSWorkflow extends DoctorValidator implements Workflow {
             '  sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer'
         ));
       }
-    }
-
-    // Python dependencies installed
-    if (hasPythonSixModule) {
-      pythonStatus = ValidationType.installed;
-    } else {
-      pythonStatus = ValidationType.missing;
-      messages.add(new ValidationMessage.error(kPythonSix.errorMessage));
     }
 
     // brew installed
@@ -216,7 +210,7 @@ class IOSWorkflow extends DoctorValidator implements Workflow {
     }
 
     return new ValidationResult(
-      <ValidationType>[xcodeStatus, pythonStatus, brewStatus].reduce(_mergeValidationTypes),
+      <ValidationType>[xcodeStatus, brewStatus].reduce(_mergeValidationTypes),
       messages,
       statusInfo: xcodeVersionInfo
     );

@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
@@ -48,6 +50,21 @@ void main() {
         ),
       );
       expect(tester.getSize(find.byType(ListWheelScrollView)), const Size(800.0, 600.0));
+    });
+
+
+    testWidgets('ListWheelScrollView needs positive magnification', (WidgetTester tester) async {
+      expect(
+            () {
+          new ListWheelScrollView(
+            useMagnifier: true,
+            magnification: -1.0,
+            itemExtent: 20.0,
+            children: <Widget>[new Container()],
+          );
+        },
+        throwsAssertionError,
+      );
     });
   });
 
@@ -238,6 +255,31 @@ void main() {
   });
 
   group('viewport transformation', () {
+    testWidgets('Center child is magnified', (WidgetTester tester) async {
+      await tester.pumpWidget(
+        new Directionality(
+          textDirection: TextDirection.ltr,
+          child: new RepaintBoundary(
+            key: const Key('list_wheel_scroll_view'),
+            child: new ListWheelScrollView(
+              useMagnifier: true,
+              magnification: 2.0,
+              itemExtent: 50.0,
+              children: List<Widget>.generate(10, (int index) {
+                return const Placeholder();
+              }),
+            ),
+          ),
+        ),
+      );
+
+      await expectLater(
+        find.byKey(const Key('list_wheel_scroll_view')),
+        matchesGoldenFile('list_wheel_scroll_view.center_child.magnified.png'),
+        skip: !Platform.isLinux,
+      );
+    });
+
     testWidgets('Default middle transform', (WidgetTester tester) async {
       await tester.pumpWidget(
         new Directionality(
@@ -265,6 +307,32 @@ void main() {
           moreOrLessEquals(0.0), moreOrLessEquals(0.0), 0.0, moreOrLessEquals(1.0),
         ]),
       ));
+    });
+
+    testWidgets('Curve the wheel to the left', (WidgetTester tester) async {
+      final ScrollController controller = new ScrollController(initialScrollOffset: 300.0);
+      await tester.pumpWidget(
+        new Directionality(
+          textDirection: TextDirection.ltr,
+          child: new RepaintBoundary(
+            key: const Key('list_wheel_scroll_view'),
+            child: new ListWheelScrollView(
+              controller: controller,
+              offAxisFraction: 0.5,
+              itemExtent: 50.0,
+              children: List<Widget>.generate(32, (int index) {
+                return const Placeholder();
+              }),
+          ),
+        ),
+      ),
+      );
+
+      await expectLater(
+        find.byKey(const Key('list_wheel_scroll_view')),
+        matchesGoldenFile('list_wheel_scroll_view.curved_wheel.left.png'),
+        skip: !Platform.isLinux,
+      );
     });
 
     testWidgets('Scrolling, diameterRatio, perspective all changes matrix', (WidgetTester tester) async {
@@ -384,6 +452,99 @@ void main() {
           moreOrLessEquals(276.46170927520404), moreOrLessEquals(-52.46133917892857), moreOrLessEquals(-230.38475772933677), moreOrLessEquals(1.69115427318801),
         ]),
       ));
+    });
+
+    testWidgets('offAxisFraction, magnification changes matrix', (WidgetTester tester) async {
+      final ScrollController controller = new ScrollController(
+          initialScrollOffset: 200.0);
+
+      await tester.pumpWidget(
+        new Directionality(
+          textDirection: TextDirection.ltr,
+          child: new ListWheelScrollView(
+            controller: controller,
+            itemExtent: 100.0,
+            offAxisFraction: 0.5,
+            children: <Widget>[
+              new Container(
+                width: 200.0,
+                child: const Center(
+                  child: const Text('blah'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+
+      final RenderListWheelViewport viewport = tester.firstRenderObject(find.byType(Container)).parent;
+      expect(viewport, paints
+        ..transform(
+          matrix4: equals(<dynamic>[
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            moreOrLessEquals(0.6318744917928063),
+            moreOrLessEquals(0.3420201433256688),
+            moreOrLessEquals(-0.0010260604299770066),
+            0.0,
+            moreOrLessEquals(-1.1877435020329863),
+            moreOrLessEquals(0.9396926207859083),
+            moreOrLessEquals(-0.002819077862357725),
+            0.0,
+            moreOrLessEquals(-62.20844875763376),
+            moreOrLessEquals(-138.79047052615562),
+            moreOrLessEquals(1.4163714115784667),
+          ]),
+        ));
+
+      controller.jumpTo(0.0);
+
+      await tester.pumpWidget(
+        new Directionality(
+          textDirection: TextDirection.ltr,
+          child: new ListWheelScrollView(
+            controller: controller,
+            itemExtent: 100.0,
+            offAxisFraction: 0.5,
+            useMagnifier: true,
+            magnification: 1.5,
+            children: <Widget>[
+              new Container(
+                width: 200.0,
+                child: const Center(
+                  child: const Text('blah'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+
+      expect(viewport, paints
+        ..transform(
+          matrix4: equals(<dynamic>[
+            1.5,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.5,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.5,
+            0.0,
+            0.0,
+            -150.0,
+            0.0,
+            1.0,
+          ]),
+        ));
+
     });
   });
 
@@ -742,5 +903,128 @@ void main() {
 
       debugDefaultTargetPlatformOverride = null;
     });
+  });
+
+  testWidgets('ListWheelScrollView getOffsetToReveal', (WidgetTester tester) async {
+    List<Widget> outerChildren;
+    final List<Widget> innerChildren = new List<Widget>(10);
+
+    await tester.pumpWidget(
+      new Directionality(
+        textDirection: TextDirection.ltr,
+        child: new Center(
+          child: Container(
+            height: 500.0,
+            width: 300.0,
+            child: new ListWheelScrollView(
+              controller: new ScrollController(initialScrollOffset: 300.0),
+              itemExtent: 100.0,
+              children: outerChildren = new List<Widget>.generate(10, (int i) {
+                return new Container(
+                  child: new Center(
+                    child: innerChildren[i] = new Container(
+                      height: 50.0,
+                      width: 50.0,
+                      child: new Text('Item $i'),
+                    ),
+                  ),
+                );
+              }),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final RenderListWheelViewport viewport = tester.allRenderObjects.firstWhere((RenderObject r) => r is RenderListWheelViewport);
+
+    // direct child of viewport
+    RenderObject target = tester.renderObject(find.byWidget(outerChildren[5]));
+    RevealedOffset revealed = viewport.getOffsetToReveal(target, 0.0);
+    expect(revealed.offset, 500.0);
+    expect(revealed.rect, new Rect.fromLTWH(0.0, 200.0, 300.0, 100.0));
+
+    revealed = viewport.getOffsetToReveal(target, 1.0);
+    expect(revealed.offset, 500.0);
+    expect(revealed.rect, new Rect.fromLTWH(0.0, 200.0, 300.0, 100.0));
+
+    revealed = viewport.getOffsetToReveal(target, 0.0, rect: new Rect.fromLTWH(40.0, 40.0, 10.0, 10.0));
+    expect(revealed.offset, 500.0);
+    expect(revealed.rect, new Rect.fromLTWH(40.0, 240.0, 10.0, 10.0));
+
+    revealed = viewport.getOffsetToReveal(target, 1.0, rect: new Rect.fromLTWH(40.0, 40.0, 10.0, 10.0));
+    expect(revealed.offset, 500.0);
+    expect(revealed.rect, new Rect.fromLTWH(40.0, 240.0, 10.0, 10.0));
+
+    // descendant of viewport, not direct child
+    target = tester.renderObject(find.byWidget(innerChildren[5]));
+    revealed = viewport.getOffsetToReveal(target, 0.0);
+    expect(revealed.offset, 500.0);
+    expect(revealed.rect, new Rect.fromLTWH(125.0, 225.0, 50.0, 50.0));
+
+    revealed = viewport.getOffsetToReveal(target, 1.0);
+    expect(revealed.offset, 500.0);
+    expect(revealed.rect, new Rect.fromLTWH(125.0, 225.0, 50.0, 50.0));
+
+    revealed = viewport.getOffsetToReveal(target, 0.0, rect: new Rect.fromLTWH(40.0, 40.0, 10.0, 10.0));
+    expect(revealed.offset, 500.0);
+    expect(revealed.rect, new Rect.fromLTWH(165.0, 265.0, 10.0, 10.0));
+
+    revealed = viewport.getOffsetToReveal(target, 1.0, rect: new Rect.fromLTWH(40.0, 40.0, 10.0, 10.0));
+    expect(revealed.offset, 500.0);
+    expect(revealed.rect, new Rect.fromLTWH(165.0, 265.0, 10.0, 10.0));
+  });
+
+  testWidgets('ListWheelScrollView showOnScreen', (WidgetTester tester) async {
+    List<Widget> outerChildren;
+    final List<Widget> innerChildren = new List<Widget>(10);
+    ScrollController controller;
+
+    await tester.pumpWidget(
+      new Directionality(
+        textDirection: TextDirection.ltr,
+        child: new Center(
+          child: Container(
+            height: 500.0,
+            width: 300.0,
+            child: new ListWheelScrollView(
+              controller: controller = new ScrollController(initialScrollOffset: 300.0),
+              itemExtent: 100.0,
+              children:
+              outerChildren = new List<Widget>.generate(10, (int i) {
+                return new Container(
+                  child: new Center(
+                    child: innerChildren[i] = new Container(
+                      height: 50.0,
+                      width: 50.0,
+                      child: new Text('Item $i'),
+                    ),
+                  ),
+                );
+              }),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(controller.offset, 300.0);
+
+    tester.renderObject(find.byWidget(outerChildren[5])).showOnScreen();
+    await tester.pumpAndSettle();
+    expect(controller.offset, 500.0);
+
+    tester.renderObject(find.byWidget(innerChildren[9])).showOnScreen();
+    await tester.pumpAndSettle();
+    expect(controller.offset, 900.0);
+
+    tester.renderObject(find.byWidget(outerChildren[7])).showOnScreen(duration: const Duration(seconds: 2));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(tester.hasRunningAnimations, isTrue);
+    expect(controller.offset, lessThan(900.0));
+    expect(controller.offset, greaterThan(700.0));
+    await tester.pumpAndSettle();
+    expect(controller.offset, 700.0);
   });
 }

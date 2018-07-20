@@ -39,8 +39,8 @@ class Dialog extends StatelessWidget {
   const Dialog({
     Key key,
     this.child,
-    this.insetAnimationDuration: const Duration(milliseconds: 100),
-    this.insetAnimationCurve: Curves.decelerate,
+    this.insetAnimationDuration = const Duration(milliseconds: 100),
+    this.insetAnimationCurve = Curves.decelerate,
   }) : super(key: key);
 
   /// The widget below this widget in the tree.
@@ -164,7 +164,7 @@ class AlertDialog extends StatelessWidget {
     this.title,
     this.titlePadding,
     this.content,
-    this.contentPadding: const EdgeInsets.fromLTRB(24.0, 20.0, 24.0, 24.0),
+    this.contentPadding = const EdgeInsets.fromLTRB(24.0, 20.0, 24.0, 24.0),
     this.actions,
     this.semanticLabel,
   }) : assert(contentPadding != null),
@@ -217,15 +217,15 @@ class AlertDialog extends StatelessWidget {
   /// from the [actions].
   final List<Widget> actions;
 
-  /// The semantic label of the dialog used by accessibility frameworks to 
+  /// The semantic label of the dialog used by accessibility frameworks to
   /// announce screen transitions when the dialog is opened and closed.
-  /// 
+  ///
   /// If this label is not provided, a semantic label will be infered from the
   /// [title] if it is not null.  If there is no title, the label will be taken
   /// from [MaterialLocalizations.alertDialogLabel].
-  /// 
+  ///
   /// See also:
-  /// 
+  ///
   ///  * [SemanticsConfiguration.isRouteName], for a description of how this
   ///    value is used.
   final String semanticLabel;
@@ -430,9 +430,9 @@ class SimpleDialog extends StatelessWidget {
   const SimpleDialog({
     Key key,
     this.title,
-    this.titlePadding: const EdgeInsets.fromLTRB(24.0, 24.0, 24.0, 0.0),
+    this.titlePadding = const EdgeInsets.fromLTRB(24.0, 24.0, 24.0, 0.0),
     this.children,
-    this.contentPadding: const EdgeInsets.fromLTRB(0.0, 12.0, 0.0, 16.0),
+    this.contentPadding = const EdgeInsets.fromLTRB(0.0, 12.0, 0.0, 16.0),
     this.semanticLabel,
   }) : assert(titlePadding != null),
        assert(contentPadding != null),
@@ -475,15 +475,15 @@ class SimpleDialog extends StatelessWidget {
   /// the top padding ends up being 24 pixels.
   final EdgeInsetsGeometry contentPadding;
 
-  /// The semantic label of the dialog used by accessibility frameworks to 
+  /// The semantic label of the dialog used by accessibility frameworks to
   /// announce screen transitions when the dialog is opened and closed.
-  /// 
+  ///
   /// If this label is not provided, a semantic label will be infered from the
   /// [title] if it is not null.  If there is no title, the label will be taken
   /// from [MaterialLocalizations.dialogLabel].
-  /// 
+  ///
   /// See also:
-  /// 
+  ///
   ///  * [SemanticsConfiguration.isRouteName], for a description of how this
   ///    value is used.
   final String semanticLabel;
@@ -546,7 +546,7 @@ class SimpleDialog extends StatelessWidget {
 class _DialogRoute<T> extends PopupRoute<T> {
   _DialogRoute({
     @required this.theme,
-    bool barrierDismissible: true,
+    bool barrierDismissible = true,
     this.barrierLabel,
     @required this.child,
     RouteSettings settings,
@@ -630,7 +630,7 @@ class _DialogRoute<T> extends PopupRoute<T> {
 ///  * <https://material.google.com/components/dialogs.html>
 Future<T> showDialog<T>({
   @required BuildContext context,
-  bool barrierDismissible: true,
+  bool barrierDismissible = true,
   @Deprecated(
     'Instead of using the "child" argument, return the child from a closure '
     'provided to the "builder" argument. This will ensure that the BuildContext '

@@ -16,7 +16,7 @@ import 'widgets_localizations.dart';
 
 // Watch out: the supported locales list in the doc comment below must be kept
 // in sync with the list we test, see test/translations_test.dart, and of course
-// the acutal list of supported locales in _MaterialLocalizationsDelegate.
+// the actual list of supported locales in _MaterialLocalizationsDelegate.
 
 /// Localized strings for the material widgets.
 ///
@@ -40,26 +40,47 @@ import 'widgets_localizations.dart';
 /// This class supports locales with the following [Locale.languageCode]s:
 ///
 ///   * ar - Arabic
+///   * bg - Bulgarian
+///   * bs - Bosnian
+///   * ca - Catalan
+///   * cs - Czech
+///   * da - Danish
 ///   * de - German
+///   * el - Greek
 ///   * en - English
 ///   * es - Spanish
+///   * et - Estonian
 ///   * fa - Farsi
+///   * fi - Finnish
+///   * fil - Fillipino
 ///   * fr - French
+///   * gsw - Swiss German
+///   * hi - Hindi
 ///   * he - Hebrew
+///   * hr - Croatian
+///   * hu - Hungarian
 ///   * id - Indonesian
 ///   * it - Italian
 ///   * ja - Japanese
 ///   * ko - Korean
+///   * lv - Latvian
+///   * lt - Lithuanian
 ///   * ms - Malay
 ///   * nl - Dutch
-///   * no - Norwegian
+///   * nb - Norwegian
 ///   * pl - Polish
 ///   * ps - Pashto
 ///   * pt - Portuguese
 ///   * ro - Romanian
 ///   * ru - Russian
+///   * sk - Slovak
+///   * sl - Slovenian
+///   * sr - Serbian
+///   * sv - Swedish
+///   * tl - Tagalog
 ///   * th - Thai
 ///   * tr - Turkish
+///   * uk - Ukranian
 ///   * ur - Urdu
 ///   * vi - Vietnamese
 ///   * zh - Simplified Chinese
@@ -139,7 +160,7 @@ class GlobalMaterialLocalizations implements MaterialLocalizations {
   }
 
   @override
-  String formatHour(TimeOfDay timeOfDay, { bool alwaysUse24HourFormat: false }) {
+  String formatHour(TimeOfDay timeOfDay, { bool alwaysUse24HourFormat = false }) {
     switch (hourFormat(of: timeOfDayFormat(alwaysUse24HourFormat: alwaysUse24HourFormat))) {
       case HourFormat.HH:
         return _twoDigitZeroPaddedFormat.format(timeOfDay.hour);
@@ -191,7 +212,7 @@ class GlobalMaterialLocalizations implements MaterialLocalizations {
   }
 
   @override
-  String formatTimeOfDay(TimeOfDay timeOfDay, { bool alwaysUse24HourFormat: false }) {
+  String formatTimeOfDay(TimeOfDay timeOfDay, { bool alwaysUse24HourFormat = false }) {
     // Not using intl.DateFormat for two reasons:
     //
     // - DateFormat supports more formats than our material time picker does,
@@ -267,6 +288,9 @@ class GlobalMaterialLocalizations implements MaterialLocalizations {
 
   @override
   String get alertDialogLabel => _translationBundle.alertDialogLabel;
+
+  @override
+  String get searchFieldLabel => _translationBundle.searchFieldLabel;
 
   @override
   String aboutListTileTitle(String applicationName) {
@@ -390,7 +414,7 @@ class GlobalMaterialLocalizations implements MaterialLocalizations {
   ///  * http://demo.icu-project.org/icu-bin/locexp?d_=en&_=en_US shows the
   ///    short time pattern used in locale en_US
   @override
-  TimeOfDayFormat timeOfDayFormat({ bool alwaysUse24HourFormat: false }) {
+  TimeOfDayFormat timeOfDayFormat({ bool alwaysUse24HourFormat = false }) {
     final String icuShortTimePattern = _translationBundle.timeOfDayFormat;
 
     assert(() {
@@ -516,26 +540,47 @@ class _MaterialLocalizationsDelegate extends LocalizationsDelegate<MaterialLocal
   // class doc and the list we test, see test/translations_test.dart.
   static const List<String> _supportedLanguages = const <String>[
     'ar', // Arabic
+    'bg', // Bulgarian
+    'bs', // Bosnian
+    'ca', // Catalan
+    'cs', // Czech
+    'da', // Danish
     'de', // German
+    'el', // Greek
     'en', // English
     'es', // Spanish
+    'et', // Estonian
     'fa', // Farsi (Persian)
+    'fi', // Finnish
+    'fil', //  Fillipino
     'fr', // French
+    'gsw', // Swiss German
     'he', // Hebrew
+    'hi', // Hindi
+    'hr', // Croatian
+    'hu', // Hungarian
     'id', // Indonesian
     'it', // Italian
     'ja', // Japanese
     'ko', // Korean
+    'lv', // Latvian
+    'lt', // Lithuanian
     'ms', // Malay
     'nl', // Dutch
-    'no', // Norwegian
+    'nb', // Norwegian
     'pl', // Polish
     'ps', // Pashto
     'pt', // Portugese
     'ro', // Romanian
     'ru', // Russian
+    'sr', // Serbian
+    'sk', // Slovak
+    'sl', // Slovenian
     'th', // Thai
+    'sv', // Swedish
+    'tl', // Tagalog
     'tr', // Turkish
+    'uk', // Ukranian
     'ur', // Urdu
     'vi', // Vietnamese
     'zh', // Chinese (simplified)

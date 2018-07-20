@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
+import 'package:meta/meta.dart';
 import 'package:test/test.dart' as test_package;
 
 import 'all_elements.dart';
@@ -20,7 +21,13 @@ import 'matchers.dart';
 import 'test_async_utils.dart';
 import 'test_text_input.dart';
 
-export 'package:test/test.dart' hide expect;
+/// Keep users from needing multiple imports to test semantics.
+export 'package:flutter/rendering.dart' show SemanticsHandle;
+
+export 'package:test/test.dart' hide
+  expect, // we have our own wrapper below
+  TypeMatcher, // matcher's TypeMatcher conflicts with the one in the Flutter framework
+  isInstanceOf; // we have our own wrapper in matchers.dart
 
 /// Signature for callback to [testWidgets] and [benchmarkWidgets].
 typedef Future<Null> WidgetTesterCallback(WidgetTester widgetTester);
@@ -48,27 +55,28 @@ typedef Future<Null> WidgetTesterCallback(WidgetTester widgetTester);
 ///       expect(find.text('Success'), findsOneWidget);
 ///     });
 /// ```
+@isTest
 void testWidgets(String description, WidgetTesterCallback callback, {
-  bool skip: false,
+  bool skip = false,
   test_package.Timeout timeout
 }) {
   final TestWidgetsFlutterBinding binding = TestWidgetsFlutterBinding.ensureInitialized();
   final WidgetTester tester = new WidgetTester._(binding);
   timeout ??= binding.defaultTestTimeout;
-  test_package.group('-', () {
-    test_package.test(
-      description,
-      () {
-        return binding.runTest(
-          () => callback(tester),
-          tester._endOfTestVerifications,
-          description: description ?? '',
-        );
-      },
-      skip: skip,
-    );
-    test_package.tearDown(binding.postTest);
-  }, timeout: timeout);
+  test_package.test(
+    description,
+    () {
+      tester._recordNumberOfSemanticsHandles();
+      test_package.addTearDown(binding.postTest);
+      return binding.runTest(
+        () => callback(tester),
+        tester._endOfTestVerifications,
+        description: description ?? '',
+      );
+    },
+    skip: skip,
+    timeout: timeout
+  );
 }
 
 /// Runs the [callback] inside the Flutter benchmark environment.
@@ -124,6 +132,7 @@ Future<Null> benchmarkWidgets(WidgetTesterCallback callback) {
   final TestWidgetsFlutterBinding binding = TestWidgetsFlutterBinding.ensureInitialized();
   assert(binding is! AutomatedTestWidgetsFlutterBinding);
   final WidgetTester tester = new WidgetTester._(binding);
+  tester._recordNumberOfSemanticsHandles();
   return binding.runTest(
     () => callback(tester),
     tester._endOfTestVerifications,
@@ -314,7 +323,9 @@ class WidgetTester extends WidgetController implements HitTestDispatcher, Ticker
   /// are required to wait for the returned future to complete before calling
   /// this method again. Attempts to do otherwise will result in a
   /// [TestFailure] error being thrown.
-  Future<T> runAsync<T>(Future<T> callback()) => binding.runAsync(callback);
+  Future<T> runAsync<T>(Future<T> callback(), {
+    Duration additionalTime = const Duration(milliseconds: 250),
+  }) => binding.runAsync(callback, additionalTime: additionalTime);
 
   /// Whether there are any any transient callbacks scheduled.
   ///
@@ -522,7 +533,8 @@ class WidgetTester extends WidgetController implements HitTestDispatcher, Ticker
   }
 
   void _verifySemanticsHandlesWereDisposed() {
-    if (binding.pipelineOwner.semanticsOwner != null) {
+    assert(_lastRecordedSemanticsHandles != null);
+    if (binding.pipelineOwner.debugOutstandingSemanticsHandles > _lastRecordedSemanticsHandles) {
       throw new FlutterError(
         'A SemanticsHandle was active at the end of the test.\n'
         'All SemanticsHandle instances must be disposed by calling dispose() on '
@@ -531,6 +543,13 @@ class WidgetTester extends WidgetController implements HitTestDispatcher, Ticker
         'existing handle will leak into another test and alter its behavior.'
       );
     }
+    _lastRecordedSemanticsHandles = null;
+  }
+
+  int _lastRecordedSemanticsHandles;
+
+  void _recordNumberOfSemanticsHandles() {
+    _lastRecordedSemanticsHandles = binding.pipelineOwner.debugOutstandingSemanticsHandles;
   }
 
   /// Returns the TestTextInput singleton.
@@ -542,6 +561,8 @@ class WidgetTester extends WidgetController implements HitTestDispatcher, Ticker
   /// Give the text input widget specified by [finder] the focus, as if the
   /// onscreen keyboard had appeared.
   ///
+  /// Implies a call to [pump].
+  ///
   /// The widget specified by [finder] must be an [EditableText] or have
   /// an [EditableText] descendant. For example `find.byType(TextField)`
   /// or `find.byType(TextFormField)`, or `find.byType(EditableText)`.
@@ -550,15 +571,15 @@ class WidgetTester extends WidgetController implements HitTestDispatcher, Ticker
   /// or [TextFormField] only need to call [enterText].
   Future<Null> showKeyboard(Finder finder) async {
     return TestAsyncUtils.guard(() async {
-      final EditableTextState editable = state(find.descendant(
-        of: finder,
-        matching: find.byType(EditableText),
-        matchRoot: true,
-      ));
-      if (editable != binding.focusedEditable) {
-        binding.focusedEditable = editable;
-        await pump();
-      }
+      final EditableTextState editable = state(
+        find.descendant(
+          of: finder,
+          matching: find.byType(EditableText),
+          matchRoot: true,
+        ),
+      );
+      binding.focusedEditable = editable;
+      await pump();
     });
   }
 
@@ -592,6 +613,44 @@ class WidgetTester extends WidgetController implements HitTestDispatcher, Ticker
     expect(backButton, findsOneWidget, reason: 'One back button expected on screen');
 
     await tap(backButton);
+  }
+
+  /// Attempts to find the [SemanticsData] of first result from `finder`.
+  ///
+  /// If the object identified by the finder doesn't own it's semantic node,
+  /// this will return the semantics data of the first ancestor with semantics
+  /// data. The ancestor's semantic data will include the child's as well as
+  /// other nodes that have been merged together.
+  ///
+  /// Will throw a [StateError] if the finder returns more than one element or
+  /// if no semantics are found or are not enabled.
+  SemanticsData getSemanticsData(Finder finder) {
+    if (binding.pipelineOwner.semanticsOwner == null)
+      throw new StateError('Semantics are not enabled.');
+    final Iterable<Element> candidates = finder.evaluate();
+    if (candidates.isEmpty) {
+      throw new StateError('Finder returned no matching elements.');
+    }
+    if (candidates.length > 1) {
+      throw new StateError('Finder returned more than one element.');
+    }
+    final Element element = candidates.single;
+    RenderObject renderObject = element.findRenderObject();
+    SemanticsNode result = renderObject.debugSemantics;
+    while (renderObject != null && result == null) {
+      renderObject = renderObject?.parent;
+      result = renderObject?.debugSemantics;
+    }
+    if (result == null)
+      throw new StateError('No Semantics data found.');
+    return result.getSemanticsData();
+  }
+
+  /// Enable semantics in a test by creating a [SemanticsHandle].
+  ///
+  /// The handle must be disposed at the end of the test.
+  SemanticsHandle ensureSemantics() {
+    return binding.pipelineOwner.ensureSemantics();
   }
 }
 

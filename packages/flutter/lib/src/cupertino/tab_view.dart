@@ -28,6 +28,10 @@ import 'route.dart';
 /// These navigation properties are not shared with any sibling [CupertinoTabView]
 /// nor any ancestor or descendant [Navigator] instances.
 ///
+/// To push a route above this [CupertinoTabView] instead of inside it (such
+/// as when showing a dialog on top of all tabs), use
+/// `Navigator.of(rootNavigator: true)`.
+///
 /// See also:
 ///
 ///  * [CupertinoTabScaffold], a typical host that supports switching between tabs.
@@ -41,7 +45,7 @@ class CupertinoTabView extends StatelessWidget {
     this.routes,
     this.onGenerateRoute,
     this.onUnknownRoute,
-    this.navigatorObservers: const <NavigatorObserver>[],
+    this.navigatorObservers = const <NavigatorObserver>[],
   }) : assert(navigatorObservers != null),
        super(key: key);
 

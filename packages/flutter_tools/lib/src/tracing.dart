@@ -32,7 +32,7 @@ class Tracing {
 
   /// Stops tracing; optionally wait for first frame.
   Future<Map<String, dynamic>> stopTracingAndDownloadTimeline({
-    bool waitForFirstFrame: false
+    bool waitForFirstFrame = false
   }) async {
     Map<String, dynamic> timeline;
 
@@ -93,7 +93,8 @@ Future<Null> downloadStartupTrace(VMService observatory) async {
   );
 
   int extractInstantEventTimestamp(String eventName) {
-    final List<Map<String, dynamic>> events = timeline['traceEvents'];
+    final List<Map<String, dynamic>> events =
+        new List<Map<String, dynamic>>.from(timeline['traceEvents']);
     final Map<String, dynamic> event = events.firstWhere(
             (Map<String, dynamic> event) => event['name'] == eventName, orElse: () => null
     );

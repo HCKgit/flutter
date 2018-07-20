@@ -43,7 +43,6 @@ void main() {
       when(xcode.isInstalled).thenReturn(false);
       when(xcode.xcodeSelectPath).thenReturn(null);
       final IOSWorkflowTestTarget workflow = new IOSWorkflowTestTarget(
-        hasPythonSixModule: false,
         hasHomebrew: false,
         hasIosDeploy: false,
       );
@@ -103,22 +102,6 @@ void main() {
       when(xcode.eulaSigned).thenReturn(false);
       when(xcode.isSimctlInstalled).thenReturn(true);
       final IOSWorkflowTestTarget workflow = new IOSWorkflowTestTarget();
-      final ValidationResult result = await workflow.validate();
-      expect(result.type, ValidationType.partial);
-    }, overrides: <Type, Generator>{
-      IMobileDevice: () => iMobileDevice,
-      Xcode: () => xcode,
-      CocoaPods: () => cocoaPods,
-    });
-
-    testUsingContext('Emits partial status when python six not installed', () async {
-      when(xcode.isInstalled).thenReturn(true);
-      when(xcode.versionText)
-          .thenReturn('Xcode 8.2.1\nBuild version 8C1002\n');
-      when(xcode.isInstalledAndMeetsVersionCheck).thenReturn(true);
-      when(xcode.eulaSigned).thenReturn(true);
-      when(xcode.isSimctlInstalled).thenReturn(true);
-      final IOSWorkflowTestTarget workflow = new IOSWorkflowTestTarget(hasPythonSixModule: false);
       final ValidationResult result = await workflow.validate();
       expect(result.type, ValidationType.partial);
     }, overrides: <Type, Generator>{
@@ -310,8 +293,8 @@ final ProcessResult exitsHappy = new ProcessResult(
 
 class MockIMobileDevice extends IMobileDevice {
   MockIMobileDevice({
-    this.isInstalled: true,
-    bool isWorking: true,
+    this.isInstalled = true,
+    bool isWorking = true,
   }) : isWorking = new Future<bool>.value(isWorking);
 
   @override
@@ -327,17 +310,13 @@ class MockCocoaPods extends Mock implements CocoaPods {}
 
 class IOSWorkflowTestTarget extends IOSWorkflow {
   IOSWorkflowTestTarget({
-    this.hasPythonSixModule: true,
-    this.hasHomebrew: true,
-    bool hasIosDeploy: true,
-    String iosDeployVersionText: '1.9.2',
-    bool hasIDeviceInstaller: true,
+    this.hasHomebrew = true,
+    bool hasIosDeploy = true,
+    String iosDeployVersionText = '1.9.2',
+    bool hasIDeviceInstaller = true,
   }) : hasIosDeploy = new Future<bool>.value(hasIosDeploy),
        iosDeployVersionText = new Future<String>.value(iosDeployVersionText),
        hasIDeviceInstaller = new Future<bool>.value(hasIDeviceInstaller);
-
-  @override
-  final bool hasPythonSixModule;
 
   @override
   final bool hasHomebrew;

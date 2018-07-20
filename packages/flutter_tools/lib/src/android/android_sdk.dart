@@ -64,21 +64,13 @@ String getAdbPath([AndroidSdk existingSdk]) {
 /// will work for those users who have Android Tools installed but
 /// not the full SDK.
 String getEmulatorPath([AndroidSdk existingSdk]) {
-  if (existingSdk?.emulatorPath != null)
-    return existingSdk.emulatorPath;
-
-  final AndroidSdk sdk = AndroidSdk.locateAndroidSdk();
-
-  if (sdk?.latestVersion == null) {
-    return os.which('emulator')?.path;
-  } else {
-    return sdk.emulatorPath;
-  }
+  return existingSdk?.emulatorPath ??
+    AndroidSdk.locateAndroidSdk()?.emulatorPath;
 }
 
 /// Locate the path for storing AVD emulator images. Returns null if none found.
 String getAvdPath() {
-  
+
   final List<String> searchPaths = <String>[
     platform.environment['ANDROID_AVD_HOME']
   ];
@@ -102,6 +94,15 @@ String getAvdPath() {
     (String p) => fs.directory(p).existsSync(),
     orElse: () => null,
   );
+}
+
+/// Locate 'avdmanager'. Prefer to use one from an Android SDK, if we can locate that.
+/// This should be used over accessing androidSdk.avdManagerPath directly because it
+/// will work for those users who have Android Tools installed but
+/// not the full SDK.
+String getAvdManagerPath([AndroidSdk existingSdk]) {
+  return existingSdk?.avdManagerPath ??
+    AndroidSdk.locateAndroidSdk()?.avdManagerPath;
 }
 
 class AndroidNdkSearchError {
@@ -223,8 +224,8 @@ class AndroidSdk {
     _init();
   }
 
-  static const String _kJavaHomeEnvironmentVariable = 'JAVA_HOME';
-  static const String _kJavaExecutable = 'java';
+  static const String _javaHomeEnvironmentVariable = 'JAVA_HOME';
+  static const String _javaExecutable = 'java';
 
   /// The path to the Android SDK.
   final String directory;
@@ -314,6 +315,8 @@ class AndroidSdk {
 
   String get emulatorPath => getEmulatorPath();
 
+  String get avdManagerPath => getAvdManagerPath();
+
   /// Validate the Android SDK. This returns an empty list if there are no
   /// issues; otherwise, it returns a list of issues found.
   List<String> validateSdkWellFormed() {
@@ -340,6 +343,14 @@ class AndroidSdk {
       if (fs.file(path).existsSync())
         return path;
     }
+    return null;
+  }
+
+  String getAvdManagerPath() {
+    final String binaryName = platform.isWindows ? 'avdmanager.bat' : 'avdmanager';
+    final String path = fs.path.join(directory, 'tools', 'bin', binaryName);
+    if (fs.file(path).existsSync())
+      return path;
     return null;
   }
 
@@ -429,7 +440,7 @@ class AndroidSdk {
     if (android_studio.javaPath != null)
       return fs.path.join(android_studio.javaPath, 'bin', 'java');
 
-    final String javaHomeEnv = platform.environment[_kJavaHomeEnvironmentVariable];
+    final String javaHomeEnv = platform.environment[_javaHomeEnvironmentVariable];
     if (javaHomeEnv != null) {
       // Trust JAVA_HOME.
       return fs.path.join(javaHomeEnv, 'bin', 'java');
@@ -451,10 +462,12 @@ class AndroidSdk {
     }
 
     // Fallback to PATH based lookup.
-    return os.which(_kJavaExecutable)?.path;
+    return os.which(_javaExecutable)?.path;
   }
 
   Map<String, String> _sdkManagerEnv;
+  /// Returns an environment with the Java folder added to PATH for use in calling
+  /// Java-based Android SDK commands such as sdkmanager and avdmanager.
   Map<String, String> get sdkManagerEnv {
     if (_sdkManagerEnv == null) {
       // If we can locate Java, then add it to the path used to run the Android SDK manager.

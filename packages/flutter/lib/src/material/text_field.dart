@@ -17,7 +17,7 @@ import 'material.dart';
 import 'text_selection.dart';
 import 'theme.dart';
 
-export 'package:flutter/services.dart' show TextInputType;
+export 'package:flutter/services.dart' show TextInputType, TextInputAction;
 
 /// A material design text field.
 ///
@@ -100,26 +100,33 @@ class TextField extends StatefulWidget {
     Key key,
     this.controller,
     this.focusNode,
-    this.decoration: const InputDecoration(),
-    TextInputType keyboardType: TextInputType.text,
+    this.decoration = const InputDecoration(),
+    TextInputType keyboardType = TextInputType.text,
+    this.textInputAction = TextInputAction.done,
+    this.textCapitalization = TextCapitalization.none,
     this.style,
-    this.textAlign: TextAlign.start,
-    this.autofocus: false,
-    this.obscureText: false,
-    this.autocorrect: true,
-    this.maxLines: 1,
+    this.textAlign = TextAlign.start,
+    this.autofocus = false,
+    this.obscureText = false,
+    this.autocorrect = true,
+    this.maxLines = 1,
     this.maxLength,
-    this.maxLengthEnforced: true,
+    this.maxLengthEnforced = true,
     this.onChanged,
+    this.onEditingComplete,
     this.onSubmitted,
     this.inputFormatters,
     this.enabled,
+    this.keyboardAppearance,
+    this.scrollPadding = const EdgeInsets.all(20.0),
   }) : assert(keyboardType != null),
+       assert(textInputAction != null),
        assert(textAlign != null),
        assert(autofocus != null),
        assert(obscureText != null),
        assert(autocorrect != null),
        assert(maxLengthEnforced != null),
+       assert(scrollPadding != null),
        assert(maxLines == null || maxLines > 0),
        assert(maxLength == null || maxLength > 0),
        keyboardType = maxLines == 1 ? keyboardType : TextInputType.multiline,
@@ -150,6 +157,24 @@ class TextField extends StatefulWidget {
   /// [maxLines] is not one, then [keyboardType] is ignored, and the
   /// [TextInputType.multiline] keyboard type is used.
   final TextInputType keyboardType;
+
+  /// The type of action button to use for the keyboard.
+  ///
+  /// Defaults to [TextInputAction.done]. Must not be null.
+  final TextInputAction textInputAction;
+
+  /// Configures how the platform keyboard will select an uppercase or 
+  /// lowercase keyboard.
+  ///
+  /// Only supports text keyboards, other keyboard types will ignore this
+  /// configuration. Capitalization is locale-aware.
+  ///
+  /// Defaults to [TextCapitalization.none]. Must not be null.
+  /// 
+  /// See also:
+  /// 
+  ///   * [TextCapitalization], for a description of each capitalization behavior.
+  final TextCapitalization textCapitalization;
 
   /// The style to use for the text being edited.
   ///
@@ -255,6 +280,24 @@ class TextField extends StatefulWidget {
   /// Called when the text being edited changes.
   final ValueChanged<String> onChanged;
 
+  /// Called when the user submits editable content (e.g., user presses the "done"
+  /// button on the keyboard).
+  ///
+  /// The default implementation of [onEditingComplete] executes 2 different
+  /// behaviors based on the situation:
+  ///
+  ///  - When a completion action is pressed, such as "done", "go", "send", or
+  ///    "search", the user's content is submitted to the [controller] and then
+  ///    focus is given up.
+  ///
+  ///  - When a non-completion action is pressed, such as "next" or "previous",
+  ///    the user's content is submitted to the [controller], but focus is not
+  ///    given up because developers may want to immediately move focus to
+  ///    another input widget within [onSubmitted].
+  ///
+  /// Providing [onEditingComplete] prevents the aforementioned default behavior.
+  final VoidCallback onEditingComplete;
+
   /// Called when the user indicates that they are done editing the text in the
   /// field.
   final ValueChanged<String> onSubmitted;
@@ -270,6 +313,23 @@ class TextField extends StatefulWidget {
   /// If non-null this property overrides the [decoration]'s
   /// [Decoration.enabled] property.
   final bool enabled;
+
+  /// The appearance of the keyboard.
+  ///
+  /// This setting is only honored on iOS devices.
+  ///
+  /// If unset, defaults to the brightness of [ThemeData.primaryColorBrightness].
+  final Brightness keyboardAppearance;
+
+  /// Configures padding to edges surrounding a [Scrollable] when the Textfield scrolls into view.
+  ///
+  /// When this widget receives focus and is not completely visible (for example scrolled partially
+  /// off the screen or overlapped by the keyboard)
+  /// then it will attempt to make itself visible by scrolling a surrounding [Scrollable], if one is present.
+  /// This value controls how far from the edges of a [Scrollable] the TextField will be positioned after the scroll.
+  ///
+  /// Defaults to EdgeInserts.all(20.0).
+  final EdgeInsets scrollPadding;
 
   @override
   _TextFieldState createState() => new _TextFieldState();
@@ -317,7 +377,7 @@ class _TextFieldState extends State<TextField> with AutomaticKeepAliveClientMixi
     if (!needsCounter)
       return effectiveDecoration;
 
-    final String counterText = '${_effectiveController.value.text.runes.length} / ${widget.maxLength}';
+    final String counterText = '${_effectiveController.value.text.runes.length}/${widget.maxLength}';
     if (_effectiveController.value.text.runes.length > widget.maxLength) {
       final ThemeData themeData = Theme.of(context);
       return effectiveDecoration.copyWith(
@@ -344,6 +404,11 @@ class _TextFieldState extends State<TextField> with AutomaticKeepAliveClientMixi
       _controller = new TextEditingController.fromValue(oldWidget.controller.value);
     else if (widget.controller != null && oldWidget.controller == null)
       _controller = null;
+    final bool isEnabled = widget.enabled ?? widget.decoration?.enabled ?? true;
+    final bool wasEnabled = oldWidget.enabled ?? oldWidget.decoration?.enabled ?? true;
+    if (wasEnabled && !isEnabled) {
+      _effectiveFocusNode.unfocus();
+    }
   }
 
   @override
@@ -456,6 +521,7 @@ class _TextFieldState extends State<TextField> with AutomaticKeepAliveClientMixi
     assert(debugCheckHasMaterial(context));
     final ThemeData themeData = Theme.of(context);
     final TextStyle style = widget.style ?? themeData.textTheme.subhead;
+    final Brightness keyboardAppearance = widget.keyboardAppearance ?? themeData.primaryColorBrightness;
     final TextEditingController controller = _effectiveController;
     final FocusNode focusNode = _effectiveFocusNode;
     final List<TextInputFormatter> formatters = widget.inputFormatters ?? <TextInputFormatter>[];
@@ -468,6 +534,8 @@ class _TextFieldState extends State<TextField> with AutomaticKeepAliveClientMixi
         controller: controller,
         focusNode: focusNode,
         keyboardType: widget.keyboardType,
+        textInputAction: widget.textInputAction,
+        textCapitalization: widget.textCapitalization,
         style: style,
         textAlign: widget.textAlign,
         autofocus: widget.autofocus,
@@ -480,10 +548,13 @@ class _TextFieldState extends State<TextField> with AutomaticKeepAliveClientMixi
             ? cupertinoTextSelectionControls
             : materialTextSelectionControls,
         onChanged: widget.onChanged,
+        onEditingComplete: widget.onEditingComplete,
         onSubmitted: widget.onSubmitted,
         onSelectionChanged: _handleSelectionChanged,
         inputFormatters: formatters,
         rendererIgnoresPointer: true,
+        scrollPadding: widget.scrollPadding,
+        keyboardAppearance: keyboardAppearance,
       ),
     );
 
@@ -506,8 +577,8 @@ class _TextFieldState extends State<TextField> with AutomaticKeepAliveClientMixi
 
     return new Semantics(
       onTap: () {
-        if (!_controller.selection.isValid)
-          _controller.selection = new TextSelection.collapsed(offset: _controller.text.length);
+        if (!_effectiveController.selection.isValid)
+          _effectiveController.selection = new TextSelection.collapsed(offset: _effectiveController.text.length);
         _requestKeyboard();
       },
       child: new IgnorePointer(

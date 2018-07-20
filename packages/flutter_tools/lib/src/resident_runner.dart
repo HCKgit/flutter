@@ -6,7 +6,6 @@ import 'dart:async';
 
 import 'package:meta/meta.dart';
 
-import 'android/gradle.dart';
 import 'application_package.dart';
 import 'artifacts.dart';
 import 'asset.dart';
@@ -24,6 +23,7 @@ import 'dependency_checker.dart';
 import 'devfs.dart';
 import 'device.dart';
 import 'globals.dart';
+import 'project.dart';
 import 'run_cold.dart';
 import 'run_hot.dart';
 import 'vmservice.dart';
@@ -64,16 +64,19 @@ class FlutterDevice {
   /// The 'reloadSources' service can be used by other Service Protocol clients
   /// connected to the VM (e.g. Observatory) to request a reload of the source
   /// code of the running application (a.k.a. HotReload).
+  /// The 'compileExpression' service can be used to compile user-provided
+  /// expressions requested during debugging of the application.
   /// This ensures that the reload process follows the normal orchestration of
   /// the Flutter Tools and not just the VM internal service.
-  Future<Null> _connect({ReloadSources reloadSources}) async {
+  Future<Null> _connect({ReloadSources reloadSources, CompileExpression compileExpression}) async {
     if (vmServices != null)
       return;
     vmServices = new List<VMService>(observatoryUris.length);
     for (int i = 0; i < observatoryUris.length; i++) {
       printTrace('Connecting to service protocol: ${observatoryUris[i]}');
       vmServices[i] = await VMService.connect(observatoryUris[i],
-          reloadSources: reloadSources);
+          reloadSources: reloadSources,
+          compileExpression: compileExpression);
       printTrace('Successfully connected to service protocol: ${observatoryUris[i]}');
     }
   }
@@ -137,7 +140,7 @@ class FlutterDevice {
 
   List<Future<Map<String, dynamic>>> reloadSources(
     String entryPath, {
-    bool pause: false
+    bool pause = false
   }) {
     final Uri deviceEntryUri = devFS.baseUri.resolveUri(fs.path.toUri(entryPath));
     final Uri devicePackagesUri = devFS.baseUri.resolve('.packages');
@@ -313,7 +316,7 @@ class FlutterDevice {
   Future<int> runCold({
     ColdRunner coldRunner,
     String route,
-    bool shouldBuild: true,
+    bool shouldBuild = true,
   }) async {
     final TargetPlatform targetPlatform = await device.targetPlatform;
     package = await getApplicationPackageForPlatform(
@@ -373,11 +376,12 @@ class FlutterDevice {
     String target,
     AssetBundle bundle,
     DateTime firstBuildTime,
-    bool bundleFirstUpload: false,
-    bool bundleDirty: false,
+    bool bundleFirstUpload = false,
+    bool bundleDirty = false,
     Set<String> fileFilter,
-    bool fullRestart: false,
+    bool fullRestart = false,
     String projectRootPath,
+    String pathToReload,
   }) async {
     final Status devFSStatus = logger.startProgress(
       'Syncing files to device ${device.name}...',
@@ -397,6 +401,7 @@ class FlutterDevice {
         fullRestart: fullRestart,
         dillOutputPath: dillOutputPath,
         projectRootPath: projectRootPath,
+        pathToReload: pathToReload
       );
     } on DevFSException {
       devFSStatus.cancel();
@@ -420,7 +425,7 @@ abstract class ResidentRunner {
   ResidentRunner(this.flutterDevices, {
     this.target,
     this.debuggingOptions,
-    this.usesTerminalUI: true,
+    this.usesTerminalUI = true,
     String projectRootPath,
     String packagesFilePath,
     this.stayResident,
@@ -447,6 +452,10 @@ abstract class ResidentRunner {
   String get projectRootPath => _projectRootPath;
   String _mainPath;
   String get mainPath => _mainPath;
+  String getReloadPath({bool fullRestart}) =>
+      debuggingOptions.buildInfo.previewDart2
+          ? mainPath + (fullRestart? '' : '.incremental') + '.dill'
+          : mainPath;
   AssetBundle _assetBundle;
   AssetBundle get assetBundle => _assetBundle;
 
@@ -458,14 +467,14 @@ abstract class ResidentRunner {
   /// Start the app and keep the process running during its lifetime.
   Future<int> run({
     Completer<DebugConnectionInfo> connectionInfoCompleter,
-    Completer<Null> appStartedCompleter,
+    Completer<void> appStartedCompleter,
     String route,
-    bool shouldBuild: true
+    bool shouldBuild = true
   });
 
   bool get supportsRestart => false;
 
-  Future<OperationResult> restart({ bool fullRestart: false, bool pauseAfterRestart: false }) {
+  Future<OperationResult> restart({ bool fullRestart = false, bool pauseAfterRestart = false }) {
     throw 'unsupported';
   }
 
@@ -622,17 +631,18 @@ abstract class ResidentRunner {
   /// If the [reloadSources] parameter is not null the 'reloadSources' service
   /// will be registered
   Future<Null> connectToServiceProtocol({String viewFilter,
-      ReloadSources reloadSources}) async {
+      ReloadSources reloadSources, CompileExpression compileExpression}) async {
     if (!debuggingOptions.debuggingEnabled)
       return new Future<Null>.error('Error the service protocol is not enabled.');
 
     bool viewFound = false;
     for (FlutterDevice device in flutterDevices) {
       device.viewFilter = viewFilter;
-      await device._connect(reloadSources: reloadSources);
+      await device._connect(reloadSources: reloadSources,
+          compileExpression: compileExpression);
       await device.getVMs();
       await device.waitForViews();
-      if (device.views == null)
+      if (device.views.isEmpty)
         printStatus('No Flutter views available on ${device.device.name}');
       else
         viewFound = true;
@@ -804,15 +814,11 @@ abstract class ResidentRunner {
         new DartDependencySetBuilder(mainPath, packagesFilePath);
     final DependencyChecker dependencyChecker =
         new DependencyChecker(dartDependencySetBuilder, assetBundle);
-    final String path = device.package.packagePath;
-    if (path == null)
+    if (device.package.packagesFile == null || !device.package.packagesFile.existsSync()) {
       return true;
-    final FileStat stat = fs.file(path).statSync();
-    if (stat.type != FileSystemEntityType.FILE) // ignore: deprecated_member_use
-      return true;
-    if (!fs.file(path).existsSync())
-      return true;
-    final DateTime lastBuildTime = stat.modified;
+    }
+    final DateTime lastBuildTime = device.package.packagesFile.statSync().modified;
+
     return dependencyChecker.check(lastBuildTime);
   }
 
@@ -841,8 +847,9 @@ abstract class ResidentRunner {
       }
       printStatus('To display the performance overlay (WidgetsApp.showPerformanceOverlay), press "P".');
     }
-    if (flutterDevices.any((FlutterDevice d) => d.device.supportsScreenshot))
+    if (flutterDevices.any((FlutterDevice d) => d.device.supportsScreenshot)) {
       printStatus('To save a screenshot to flutter.png, press "s".');
+    }
   }
 
   /// Called when a signal has requested we exit.
@@ -895,11 +902,9 @@ String getMissingPackageHintForPlatform(TargetPlatform platform) {
     case TargetPlatform.android_arm64:
     case TargetPlatform.android_x64:
     case TargetPlatform.android_x86:
-      String manifest = 'android/AndroidManifest.xml';
-      if (isProjectUsingGradle()) {
-        manifest = gradleManifestPath;
-      }
-      return 'Is your project missing an $manifest?\nConsider running "flutter create ." to create one.';
+      final FlutterProject project = new FlutterProject(fs.currentDirectory);
+      final String manifestPath = fs.path.relative(project.android.gradleManifestFile.path);
+      return 'Is your project missing an $manifestPath?\nConsider running "flutter create ." to create one.';
     case TargetPlatform.ios:
       return 'Is your project missing an ios/Runner/Info.plist?\nConsider running "flutter create ." to create one.';
     default:

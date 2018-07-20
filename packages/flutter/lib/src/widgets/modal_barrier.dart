@@ -31,7 +31,7 @@ class ModalBarrier extends StatelessWidget {
   const ModalBarrier({
     Key key,
     this.color,
-    this.dismissible: true,
+    this.dismissible = true,
     this.semanticsLabel,
   }) : super(key: key);
 
@@ -83,7 +83,7 @@ class ModalBarrier extends StatelessWidget {
               constraints: const BoxConstraints.expand(),
               child: color == null ? null : new DecoratedBox(
                 decoration: new BoxDecoration(
-                  color: color
+                  color: color,
                 )
               )
             )
@@ -115,7 +115,7 @@ class AnimatedModalBarrier extends AnimatedWidget {
   const AnimatedModalBarrier({
     Key key,
     Animation<Color> color,
-    this.dismissible: true,
+    this.dismissible = true,
     this.semanticsLabel,
   }) : super(key: key, listenable: color);
 

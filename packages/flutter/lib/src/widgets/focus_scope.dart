@@ -27,7 +27,7 @@ class _FocusScopeMarker extends InheritedWidget {
 /// The focus tree keeps track of which widget is the user's current focus. The
 /// focused widget often listens for keyboard events.
 ///
-/// The a focus scope does not itself receive focus but instead helps remember
+/// A focus scope does not itself receive focus but instead helps remember
 /// previous focus states. A scope is currently active when its [node] is the
 /// first focus of its parent scope. To activate a [FocusScope], either use the
 /// [autofocus] property or explicitly make the [node] the first focus in the
@@ -52,7 +52,7 @@ class FocusScope extends StatefulWidget {
   const FocusScope({
     Key key,
     @required this.node,
-    this.autofocus: false,
+    this.autofocus = false,
     this.child,
   }) : assert(node != null),
        assert(autofocus != null),

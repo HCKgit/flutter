@@ -17,7 +17,7 @@ import '../runner/flutter_command.dart';
 import 'build.dart';
 
 class BuildAotCommand extends BuildSubCommand {
-  BuildAotCommand({bool verboseHelp: false}) {
+  BuildAotCommand({bool verboseHelp = false}) {
     usesTargetOption();
     addBuildModeFlags();
     usesPubOption();
@@ -93,7 +93,7 @@ class BuildAotCommand extends BuildSubCommand {
           extraFrontEndOptions: argResults[FlutterOptions.kExtraFrontEndOptions],
         );
         if (mainPath == null) {
-          printError('Compiler terminated unexpectedly.');
+          throwToolExit('Compiler terminated unexpectedly.');
           return;
         }
       }
@@ -101,7 +101,7 @@ class BuildAotCommand extends BuildSubCommand {
       // Build AOT snapshot.
       if (platform == TargetPlatform.ios) {
         // Determine which iOS architectures to build for.
-        final Iterable<IOSArch> buildArchs = argResults['ios-arch'].map(getIOSArchForName);
+        final Iterable<IOSArch> buildArchs = argResults['ios-arch'].map<IOSArch>(getIOSArchForName);
         final Map<IOSArch, String> iosBuilds = <IOSArch, String>{};
         for (IOSArch arch in buildArchs)
           iosBuilds[arch] = fs.path.join(outputPath, getNameForIOSArch(arch));

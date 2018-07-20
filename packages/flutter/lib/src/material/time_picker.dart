@@ -17,6 +17,7 @@ import 'feedback.dart';
 import 'flat_button.dart';
 import 'material_localizations.dart';
 import 'theme.dart';
+import 'theme_data.dart';
 import 'time.dart';
 import 'typography.dart';
 
@@ -29,11 +30,15 @@ enum _TimePickerMode { hour, minute }
 const double _kTimePickerHeaderPortraitHeight = 96.0;
 const double _kTimePickerHeaderLandscapeWidth = 168.0;
 
+
 const double _kTimePickerWidthPortrait = 328.0;
 const double _kTimePickerWidthLandscape = 512.0;
 
-const double _kTimePickerHeightPortrait = 484.0;
-const double _kTimePickerHeightLandscape = 304.0;
+const double _kTimePickerHeightPortrait = 496.0;
+const double _kTimePickerHeightLandscape = 316.0;
+
+const double _kTimePickerHeightPortraitCollapsed = 484.0;
+const double _kTimePickerHeightLandscapeCollapsed = 304.0;
 
 /// The horizontal gap between the day period fragment and the fragment
 /// positioned next to it horizontally.
@@ -104,7 +109,7 @@ class _TimePickerHeaderFragment {
   const _TimePickerHeaderFragment({
     @required this.layoutId,
     @required this.widget,
-    this.startMargin: 0.0,
+    this.startMargin = 0.0,
   }) : assert(layoutId != null),
         assert(widget != null),
         assert(startMargin != null);
@@ -133,7 +138,7 @@ class _TimePickerHeaderPiece {
   ///
   /// All arguments must be non-null. If the piece does not contain a pivot
   /// fragment, use the value -1 as a convention.
-  const _TimePickerHeaderPiece(this.pivotIndex, this.fragments, { this.bottomMargin: 0.0 })
+  const _TimePickerHeaderPiece(this.pivotIndex, this.fragments, { this.bottomMargin = 0.0 })
       : assert(pivotIndex != null),
         assert(fragments != null),
         assert(bottomMargin != null);
@@ -475,7 +480,7 @@ _TimePickerHeaderFormat _buildHeaderFormat(TimeOfDayFormat timeOfDayFormat, _Tim
   }
 
   // Convenience function for creating a time header piece with up to three fragments.
-  _TimePickerHeaderPiece piece({ int pivotIndex: -1, double bottomMargin: 0.0,
+  _TimePickerHeaderPiece piece({ int pivotIndex = -1, double bottomMargin = 0.0,
       _TimePickerHeaderFragment fragment1, _TimePickerHeaderFragment fragment2, _TimePickerHeaderFragment fragment3 }) {
     final List<_TimePickerHeaderFragment> fragments = <_TimePickerHeaderFragment>[fragment1];
     if (fragment2 != null) {
@@ -893,7 +898,7 @@ class _DialPainter extends CustomPainter {
     canvas.restore();
   }
 
-  static const double _kSemanticNodeSizeScale = 1.5;
+  static const double _semanticNodeSizeScale = 1.5;
 
   @override
   SemanticsBuilderCallback get semanticsBuilder => _buildSemantics;
@@ -901,7 +906,7 @@ class _DialPainter extends CustomPainter {
   /// Creates semantics nodes for the hour/minute labels painted on the dial.
   ///
   /// The nodes are positioned on top of the text and their size is
-  /// [_kSemanticNodeSizeScale] bigger than those of the text boxes to provide
+  /// [_semanticNodeSizeScale] bigger than those of the text boxes to provide
   /// bigger tap area.
   List<CustomPainterSemantics> _buildSemantics(Size size) {
     final double radius = size.shortestSide / 2.0;
@@ -934,8 +939,8 @@ class _DialPainter extends CustomPainter {
 
       for (_TappableLabel label in labels) {
         final TextPainter labelPainter = label.painter;
-        final double width = labelPainter.width * _kSemanticNodeSizeScale;
-        final double height = labelPainter.height * _kSemanticNodeSizeScale;
+        final double width = labelPainter.width * _semanticNodeSizeScale;
+        final double height = labelPainter.height * _semanticNodeSizeScale;
         final Offset nodeOffset = getOffsetForTheta(labelTheta, ring) + new Offset(-width / 2.0, -height / 2.0);
         final CustomPainterSemantics node = new CustomPainterSemantics(
           rect: new Rect.fromLTRB(
@@ -1575,12 +1580,25 @@ class _TimePickerDialogState extends State<_TimePickerDialog> {
             ),
           );
 
+          double timePickerHeightPortrait;
+          double timePickerHeightLandscape;
+          switch (theme.materialTapTargetSize) {
+            case MaterialTapTargetSize.padded:
+              timePickerHeightPortrait = _kTimePickerHeightPortrait;
+              timePickerHeightLandscape = _kTimePickerHeightLandscape;
+              break;
+            case MaterialTapTargetSize.shrinkWrap:
+              timePickerHeightPortrait = _kTimePickerHeightPortraitCollapsed;
+              timePickerHeightLandscape = _kTimePickerHeightLandscapeCollapsed;
+              break;
+          }
+
           assert(orientation != null);
           switch (orientation) {
             case Orientation.portrait:
               return new SizedBox(
                 width: _kTimePickerWidthPortrait,
-                height: _kTimePickerHeightPortrait,
+                height: timePickerHeightPortrait,
                 child: new Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1595,7 +1613,7 @@ class _TimePickerDialogState extends State<_TimePickerDialog> {
             case Orientation.landscape:
               return new SizedBox(
                 width: _kTimePickerWidthLandscape,
-                height: _kTimePickerHeightLandscape,
+                height: timePickerHeightLandscape,
                 child: new Row(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,

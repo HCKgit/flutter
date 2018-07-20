@@ -37,6 +37,7 @@
   "modalBarrierDismissLabel": "برخاست کریں",
   "drawerLabel": "نیویگیشن مینو",
   "popupMenuLabel": "پاپ اپ مینو",
-  "dialogLabel": "ڈائیلاگ",
-  "alertDialogLabel": "انتباہ"
+  "dialogLabel": "ڈائلاگ",
+  "alertDialogLabel": "انتباہ",
+  "searchFieldLabel": "تلاش کریں"
 }

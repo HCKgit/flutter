@@ -4,12 +4,14 @@
 
 import 'dart:async';
 
+import '../base/file_system.dart';
 import '../globals.dart';
 import '../plugins.dart';
+import '../project.dart';
 import '../runner/flutter_command.dart';
 
 class InjectPluginsCommand extends FlutterCommand {
-  InjectPluginsCommand({ this.hidden: false }) {
+  InjectPluginsCommand({ this.hidden = false }) {
     requiresPubspecYaml();
   }
 
@@ -24,8 +26,9 @@ class InjectPluginsCommand extends FlutterCommand {
 
   @override
   Future<Null> runCommand() async {
-    injectPlugins();
-    final bool result = hasPlugins();
+    final FlutterProject project = new FlutterProject(fs.currentDirectory);
+    await injectPlugins(project);
+    final bool result = hasPlugins(project);
     if (result) {
       printStatus('GeneratedPluginRegistrants successfully written.');
     } else {

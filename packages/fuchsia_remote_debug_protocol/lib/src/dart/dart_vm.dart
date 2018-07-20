@@ -38,7 +38,8 @@ Future<json_rpc.Peer> _waitAndConnect(Uri uri) async {
     WebSocket socket;
     json_rpc.Peer peer;
     try {
-      socket = await WebSocket.connect(uri.toString());
+      socket =
+          await WebSocket.connect(uri.toString()).timeout(_kConnectTimeout);
       peer = new json_rpc.Peer(new IOWebSocketChannel(socket).cast())..listen();
       return peer;
     } on HttpException catch (e) {
@@ -48,6 +49,7 @@ Future<json_rpc.Peer> _waitAndConnect(Uri uri) async {
       await socket?.close();
       rethrow;
     } catch (e) {
+      _log.fine('Dart VM connection failed $e: ${e.message}');
       // Other unknown errors will be handled with reconnects.
       await peer?.close();
       await socket?.close();
@@ -56,7 +58,7 @@ Future<json_rpc.Peer> _waitAndConnect(Uri uri) async {
         await new Future<Null>.delayed(_kReconnectAttemptInterval);
         return attemptConnection(uri);
       } else {
-        _log.severe('Connection to Fuchsia\'s Dart VM timed out at '
+        _log.warning('Connection to Fuchsia\'s Dart VM timed out at '
             '${uri.toString()}');
         rethrow;
       }
@@ -120,9 +122,8 @@ class DartVm {
   Future<List<IsolateRef>> getMainIsolatesByPattern(Pattern pattern) async {
     final Map<String, dynamic> jsonVmRef =
         await invokeRpc('getVM', timeout: _kRpcTimeout);
-    final List<Map<String, dynamic>> jsonIsolates = jsonVmRef['isolates'];
     final List<IsolateRef> result = <IsolateRef>[];
-    for (Map<String, dynamic> jsonIsolate in jsonIsolates) {
+    for (Map<String, dynamic> jsonIsolate in jsonVmRef['isolates']) {
       final String name = jsonIsolate['name'];
       if (name.contains(pattern) && name.contains(new RegExp(r':main\(\)'))) {
         result.add(new IsolateRef._fromJson(jsonIsolate, this));
@@ -141,19 +142,15 @@ class DartVm {
     Map<String, dynamic> params,
     Duration timeout = _kRpcTimeout,
   }) async {
-    final Future<Map<String, dynamic>> future = _peer.sendRequest(
-      function,
-      params ?? <String, dynamic>{},
-    );
-    if (timeout == null) {
-      return future;
-    }
-    return future.timeout(timeout, onTimeout: () {
+    final Map<String, dynamic> result = await _peer
+        .sendRequest(function, params ?? <String, dynamic>{})
+        .timeout(timeout, onTimeout: () {
       throw new TimeoutException(
         'Peer connection timed out during RPC call',
         timeout,
       );
     });
+    return result;
   }
 
   /// Returns a list of [FlutterView] objects running across all Dart VM's.
@@ -166,8 +163,7 @@ class DartVm {
     final List<FlutterView> views = <FlutterView>[];
     final Map<String, dynamic> rpcResponse =
         await invokeRpc('_flutter.listViews', timeout: _kRpcTimeout);
-    final List<Map<String, dynamic>> flutterViewsJson = rpcResponse['views'];
-    for (Map<String, dynamic> jsonView in flutterViewsJson) {
+    for (Map<String, dynamic> jsonView in rpcResponse['views']) {
       final FlutterView flutterView = new FlutterView._fromJson(jsonView);
       if (flutterView != null) {
         views.add(flutterView);

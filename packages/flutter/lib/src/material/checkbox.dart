@@ -10,6 +10,7 @@ import 'package:flutter/widgets.dart';
 import 'constants.dart';
 import 'debug.dart';
 import 'theme.dart';
+import 'theme_data.dart';
 import 'toggleable.dart';
 
 /// A material design checkbox.
@@ -47,7 +48,7 @@ class Checkbox extends StatefulWidget {
   /// The following arguments are required:
   ///
   /// * [value], which determines whether the checkbox is checked. The [value]
-  ///   can only be be null if [tristate] is true.
+  ///   can only be null if [tristate] is true.
   /// * [onChanged], which is called when the value of the checkbox should
   ///   change. It can be set to null to disable the checkbox.
   ///
@@ -55,9 +56,10 @@ class Checkbox extends StatefulWidget {
   const Checkbox({
     Key key,
     @required this.value,
-    this.tristate: false,
+    this.tristate = false,
     @required this.onChanged,
     this.activeColor,
+    this.materialTapTargetSize,
   }) : assert(tristate != null),
        assert(tristate || value != null),
        super(key: key);
@@ -98,7 +100,7 @@ class Checkbox extends StatefulWidget {
 
   /// The color to use when this checkbox is checked.
   ///
-  /// Defaults to accent color of the current [Theme].
+  /// Defaults to [ThemeData.toggleableActiveColor].
   final Color activeColor;
 
   /// If true the checkbox's [value] can be true, false, or null.
@@ -113,6 +115,15 @@ class Checkbox extends StatefulWidget {
   /// If tristate is false (the default), [value] must not be null.
   final bool tristate;
 
+  /// Configures the minimum size of the tap target.
+  ///
+  /// Defaults to [ThemeData.materialTapTargetSize].
+  ///
+  /// See also:
+  ///
+  ///   * [MaterialTapTargetSize], for a description of how this affects tap targets.
+  final MaterialTapTargetSize materialTapTargetSize;
+
   /// The width of a checkbox widget.
   static const double width = 18.0;
 
@@ -125,12 +136,23 @@ class _CheckboxState extends State<Checkbox> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     assert(debugCheckHasMaterial(context));
     final ThemeData themeData = Theme.of(context);
+    Size size;
+    switch (widget.materialTapTargetSize ?? themeData.materialTapTargetSize) {
+      case MaterialTapTargetSize.padded:
+        size = const Size(2 * kRadialReactionRadius + 8.0, 2 * kRadialReactionRadius + 8.0);
+        break;
+      case MaterialTapTargetSize.shrinkWrap:
+        size = const Size(2 * kRadialReactionRadius, 2 * kRadialReactionRadius);
+        break;
+    }
+    final BoxConstraints additionalConstraints = new BoxConstraints.tight(size);
     return new _CheckboxRenderObjectWidget(
       value: widget.value,
       tristate: widget.tristate,
-      activeColor: widget.activeColor ?? themeData.accentColor,
+      activeColor: widget.activeColor ?? themeData.toggleableActiveColor,
       inactiveColor: widget.onChanged != null ? themeData.unselectedWidgetColor : themeData.disabledColor,
       onChanged: widget.onChanged,
+      additionalConstraints: additionalConstraints,
       vsync: this,
     );
   }
@@ -145,6 +167,7 @@ class _CheckboxRenderObjectWidget extends LeafRenderObjectWidget {
     @required this.inactiveColor,
     @required this.onChanged,
     @required this.vsync,
+    @required this.additionalConstraints,
   }) : assert(tristate != null),
        assert(tristate || value != null),
        assert(activeColor != null),
@@ -158,6 +181,7 @@ class _CheckboxRenderObjectWidget extends LeafRenderObjectWidget {
   final Color inactiveColor;
   final ValueChanged<bool> onChanged;
   final TickerProvider vsync;
+  final BoxConstraints additionalConstraints;
 
   @override
   _RenderCheckbox createRenderObject(BuildContext context) => new _RenderCheckbox(
@@ -167,6 +191,7 @@ class _CheckboxRenderObjectWidget extends LeafRenderObjectWidget {
     inactiveColor: inactiveColor,
     onChanged: onChanged,
     vsync: vsync,
+    additionalConstraints: additionalConstraints,
   );
 
   @override
@@ -177,6 +202,7 @@ class _CheckboxRenderObjectWidget extends LeafRenderObjectWidget {
       ..activeColor = activeColor
       ..inactiveColor = inactiveColor
       ..onChanged = onChanged
+      ..additionalConstraints = additionalConstraints
       ..vsync = vsync;
   }
 }
@@ -191,6 +217,7 @@ class _RenderCheckbox extends RenderToggleable {
     bool tristate,
     Color activeColor,
     Color inactiveColor,
+    BoxConstraints additionalConstraints,
     ValueChanged<bool> onChanged,
     @required TickerProvider vsync,
   }): _oldValue = value,
@@ -200,7 +227,7 @@ class _RenderCheckbox extends RenderToggleable {
         activeColor: activeColor,
         inactiveColor: inactiveColor,
         onChanged: onChanged,
-        size: const Size(2 * kRadialReactionRadius, 2 * kRadialReactionRadius),
+        additionalConstraints: additionalConstraints,
         vsync: vsync,
       );
 

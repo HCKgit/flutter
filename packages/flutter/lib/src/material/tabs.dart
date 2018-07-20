@@ -234,7 +234,7 @@ class _TabLabelBarRenderer extends RenderFlex {
 class _TabLabelBar extends Flex {
   _TabLabelBar({
     Key key,
-    List<Widget> children: const <Widget>[],
+    List<Widget> children = const <Widget>[],
     this.onPerformLayout,
   }) : super(
     key: key,
@@ -526,10 +526,10 @@ class TabBar extends StatefulWidget implements PreferredSizeWidget {
     Key key,
     @required this.tabs,
     this.controller,
-    this.isScrollable: false,
+    this.isScrollable = false,
     this.indicatorColor,
-    this.indicatorWeight: 2.0,
-    this.indicatorPadding: EdgeInsets.zero,
+    this.indicatorWeight = 2.0,
+    this.indicatorPadding = EdgeInsets.zero,
     this.indicator,
     this.indicatorSize,
     this.labelColor,
@@ -1150,10 +1150,7 @@ class _TabBarViewState extends State<TabBarView> {
       }
       _controller.offset = (_pageController.page - _controller.index).clamp(-1.0, 1.0);
     } else if (notification is ScrollEndNotification) {
-      final ScrollPosition position = _pageController.position;
-      final double pageTolerance = position.physics.tolerance.distance
-          / (position.viewportDimension * _pageController.viewportFraction);
-      _controller.index = (_pageController.page + pageTolerance).floor();
+      _controller.index = _pageController.page.round();
       _currentIndex = _controller.index;
     }
     _warpUnderwayCount -= 1;
@@ -1222,7 +1219,7 @@ class TabPageSelector extends StatelessWidget {
   const TabPageSelector({
     Key key,
     this.controller,
-    this.indicatorSize: 12.0,
+    this.indicatorSize = 12.0,
     this.color,
     this.selectedColor,
   }) : assert(indicatorSize != null && indicatorSize > 0.0), super(key: key);

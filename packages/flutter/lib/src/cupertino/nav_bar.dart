@@ -18,16 +18,13 @@ const double _kNavBarPersistentHeight = 44.0;
 
 /// Size increase from expanding the navigation bar into an iOS-11-style large title
 /// form in a [CustomScrollView].
-const double _kNavBarLargeTitleHeightExtension = 56.0;
+const double _kNavBarLargeTitleHeightExtension = 52.0;
 
 /// Number of logical pixels scrolled down before the title text is transferred
 /// from the normal navigation bar to a big title below the navigation bar.
 const double _kNavBarShowLargeTitleThreshold = 10.0;
 
 const double _kNavBarEdgePadding = 16.0;
-
-// The back chevron has a special padding in iOS.
-const double _kNavBarBackButtonPadding = 0.0;
 
 const double _kNavBarBackButtonTapWidth = 50.0;
 
@@ -46,10 +43,10 @@ const Border _kDefaultNavBarBorder = const Border(
 );
 
 const TextStyle _kLargeTitleTextStyle = const TextStyle(
-  fontFamily: '.SF UI Text',
+  fontFamily: '.SF Pro Display',
   fontSize: 34.0,
   fontWeight: FontWeight.w700,
-  letterSpacing: -0.26,
+  letterSpacing: 0.24,
   color: CupertinoColors.black,
 );
 
@@ -82,12 +79,13 @@ class CupertinoNavigationBar extends StatelessWidget implements ObstructingPrefe
   const CupertinoNavigationBar({
     Key key,
     this.leading,
-    this.automaticallyImplyLeading: true,
+    this.automaticallyImplyLeading = true,
     this.middle,
     this.trailing,
-    this.border: _kDefaultNavBarBorder,
-    this.backgroundColor: _kDefaultNavBarBackgroundColor,
-    this.actionsForegroundColor: CupertinoColors.activeBlue,
+    this.border = _kDefaultNavBarBorder,
+    this.backgroundColor = _kDefaultNavBarBackgroundColor,
+    this.padding,
+    this.actionsForegroundColor = CupertinoColors.activeBlue,
   }) : assert(automaticallyImplyLeading != null),
        super(key: key);
 
@@ -118,6 +116,19 @@ class CupertinoNavigationBar extends StatelessWidget implements ObstructingPrefe
   /// behind it.
   final Color backgroundColor;
 
+  /// Padding for the contents of the navigation bar.
+  ///
+  /// If null, the navigation bar will adopt the following defaults:
+  ///
+  ///  * Vertically, contents will be sized to the same height as the navigation
+  ///    bar itself minus the status bar.
+  ///  * Horizontally, padding will be 16 pixels according to iOS specifications
+  ///    unless the leading widget is an automatically inserted back button, in
+  ///    which case the padding will be 0.
+  ///
+  /// Vertical padding won't change the height of the nav bar.
+  final EdgeInsetsDirectional padding;
+
   /// The border of the navigation bar. By default renders a single pixel bottom border side.
   ///
   /// If a border is null, the navigation bar will not display a border.
@@ -147,8 +158,9 @@ class CupertinoNavigationBar extends StatelessWidget implements ObstructingPrefe
       child: new _CupertinoPersistentNavigationBar(
         leading: leading,
         automaticallyImplyLeading: automaticallyImplyLeading,
-        middle: middle,
+        middle: new Semantics(child: middle, header: true),
         trailing: trailing,
+        padding: padding,
         actionsForegroundColor: actionsForegroundColor,
       ),
     );
@@ -192,11 +204,13 @@ class CupertinoSliverNavigationBar extends StatelessWidget {
     Key key,
     @required this.largeTitle,
     this.leading,
-    this.automaticallyImplyLeading: true,
+    this.automaticallyImplyLeading = true,
     this.middle,
     this.trailing,
-    this.backgroundColor: _kDefaultNavBarBackgroundColor,
-    this.actionsForegroundColor: CupertinoColors.activeBlue,
+    this.border = _kDefaultNavBarBorder,
+    this.backgroundColor = _kDefaultNavBarBackgroundColor,
+    this.padding,
+    this.actionsForegroundColor = CupertinoColors.activeBlue,
   }) : assert(largeTitle != null),
        assert(automaticallyImplyLeading != null),
        super(key: key);
@@ -245,6 +259,24 @@ class CupertinoSliverNavigationBar extends StatelessWidget {
   /// This widget is visible in both collapsed and expanded states.
   final Widget trailing;
 
+  /// Padding for the contents of the navigation bar.
+  ///
+  /// If null, the navigation bar will adopt the following defaults:
+  ///
+  ///  * Vertically, contents will be sized to the same height as the navigation
+  ///    bar itself minus the status bar.
+  ///  * Horizontally, padding will be 16 pixels according to iOS specifications
+  ///    unless the leading widget is an automatically inserted back button, in
+  ///    which case the padding will be 0.
+  ///
+  /// Vertical padding won't change the height of the nav bar.
+  final EdgeInsetsDirectional padding;
+
+  /// The border of the navigation bar. By default renders a single pixel bottom border side.
+  ///
+  /// If a border is null, the navigation bar will not display a border.
+  final Border border;
+
   /// The background color of the navigation bar. If it contains transparency, the
   /// tab bar will automatically produce a blurring effect to the content
   /// behind it.
@@ -271,6 +303,8 @@ class CupertinoSliverNavigationBar extends StatelessWidget {
         automaticallyImplyLeading: automaticallyImplyLeading,
         middle: middle,
         trailing: trailing,
+        padding: padding,
+        border: border,
         backgroundColor: backgroundColor,
         actionsForegroundColor: actionsForegroundColor,
       ),
@@ -285,27 +319,22 @@ Widget _wrapWithBackground({
   Color backgroundColor,
   Widget child,
 }) {
+
+  final bool darkBackground = backgroundColor.computeLuminance() < 0.179;
+  final SystemUiOverlayStyle overlayStyle = darkBackground
+      ? SystemUiOverlayStyle.light
+      : SystemUiOverlayStyle.dark;
   final DecoratedBox childWithBackground = new DecoratedBox(
     decoration: new BoxDecoration(
       border: border,
       color: backgroundColor,
     ),
-    child: child,
+    child: new AnnotatedRegion<SystemUiOverlayStyle>(
+      value: overlayStyle,
+      sized: true,
+      child: child,
+    ),
   );
-
-  final bool darkBackground = backgroundColor.computeLuminance() < 0.179;
-  // TODO(jonahwilliams): remove once we have platform themes.
-  switch (defaultTargetPlatform) {
-    case TargetPlatform.iOS:
-      SystemChrome.setSystemUIOverlayStyle(
-        darkBackground ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark
-      );
-      break;
-    case TargetPlatform.android:
-    case TargetPlatform.fuchsia:
-      SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.dark);
-  }
-
 
   if (backgroundColor.alpha == 0xFF)
     return childWithBackground;
@@ -330,6 +359,7 @@ class _CupertinoPersistentNavigationBar extends StatelessWidget implements Prefe
     this.automaticallyImplyLeading,
     this.middle,
     this.trailing,
+    this.padding,
     this.actionsForegroundColor,
     this.middleVisible,
   }) : super(key: key);
@@ -341,6 +371,8 @@ class _CupertinoPersistentNavigationBar extends StatelessWidget implements Prefe
   final Widget middle;
 
   final Widget trailing;
+
+  final EdgeInsetsDirectional padding;
 
   final Color actionsForegroundColor;
 
@@ -360,15 +392,29 @@ class _CupertinoPersistentNavigationBar extends StatelessWidget implements Prefe
       color: actionsForegroundColor,
     );
 
-    final Widget styledLeading = leading == null ? null : new DefaultTextStyle(
-      style: actionsStyle,
-      child: leading,
-    );
+    final Widget styledLeading = leading == null
+        ? null
+        : new Padding(
+          padding: new EdgeInsetsDirectional.only(
+            start: padding?.start ?? _kNavBarEdgePadding,
+          ),
+          child: new DefaultTextStyle(
+            style: actionsStyle,
+            child: leading,
+          ),
+        );
 
-    final Widget styledTrailing = trailing == null ? null : new DefaultTextStyle(
-      style: actionsStyle,
-      child: trailing,
-    );
+    final Widget styledTrailing = trailing == null
+        ? null
+        : Padding(
+          padding: new EdgeInsetsDirectional.only(
+            end: padding?.end ?? _kNavBarEdgePadding,
+          ),
+          child: new DefaultTextStyle(
+            style: actionsStyle,
+            child: trailing,
+          ),
+        );
 
     // Let the middle be black rather than `actionsForegroundColor` in case
     // it's a plain text title.
@@ -411,6 +457,23 @@ class _CupertinoPersistentNavigationBar extends StatelessWidget implements Prefe
       }
     }
 
+    Widget paddedToolbar = new NavigationToolbar(
+      leading: styledLeading ?? backOrCloseButton,
+      middle: animatedStyledMiddle,
+      trailing: styledTrailing,
+      centerMiddle: true,
+    );
+
+    if (padding != null) {
+      paddedToolbar = new Padding(
+        padding: EdgeInsets.only(
+          top: padding.top,
+          bottom: padding.bottom,
+        ),
+        child: paddedToolbar,
+      );
+    }
+
     return new SizedBox(
       height: _kNavBarPersistentHeight + MediaQuery.of(context).padding.top,
       child: IconTheme.merge(
@@ -420,18 +483,7 @@ class _CupertinoPersistentNavigationBar extends StatelessWidget implements Prefe
         ),
         child: new SafeArea(
           bottom: false,
-          child: new Padding(
-            padding: new EdgeInsetsDirectional.only(
-              start: useBackButton ? _kNavBarBackButtonPadding : _kNavBarEdgePadding,
-              end: _kNavBarEdgePadding,
-            ),
-            child: new NavigationToolbar(
-              leading: styledLeading ?? backOrCloseButton,
-              middle: animatedStyledMiddle,
-              trailing: styledTrailing,
-              centerMiddle: true,
-            ),
-          ),
+          child: paddedToolbar,
         ),
       ),
     );
@@ -447,8 +499,9 @@ class _CupertinoLargeTitleNavigationBarSliverDelegate
     this.automaticallyImplyLeading,
     this.middle,
     this.trailing,
-    this.border: _kDefaultNavBarBorder,
-    this.backgroundColor: _kDefaultNavBarBackgroundColor,
+    this.padding,
+    this.border,
+    this.backgroundColor,
     this.actionsForegroundColor,
   }) : assert(persistentHeight != null);
 
@@ -463,6 +516,8 @@ class _CupertinoLargeTitleNavigationBarSliverDelegate
   final Widget middle;
 
   final Widget trailing;
+
+  final EdgeInsetsDirectional padding;
 
   final Color backgroundColor;
 
@@ -484,11 +539,12 @@ class _CupertinoLargeTitleNavigationBarSliverDelegate
         new _CupertinoPersistentNavigationBar(
       leading: leading,
       automaticallyImplyLeading: automaticallyImplyLeading,
-      middle: middle ?? title,
+      middle: new Semantics(child: middle ?? title, header: true),
       trailing: trailing,
       // If middle widget exists, always show it. Otherwise, show title
       // when collapsed.
       middleVisible: middle != null ? null : !showLargeTitle,
+      padding: padding,
       actionsForegroundColor: actionsForegroundColor,
     );
 
@@ -526,7 +582,10 @@ class _CupertinoLargeTitleNavigationBarSliverDelegate
                       child: new SafeArea(
                         top: false,
                         bottom: false,
-                        child: title,
+                        child: new Semantics(
+                          header: true,
+                          child: title,
+                        ),
                       ),
                     ),
                   ),
@@ -552,6 +611,7 @@ class _CupertinoLargeTitleNavigationBarSliverDelegate
         || leading != oldDelegate.leading
         || middle != oldDelegate.middle
         || trailing != oldDelegate.trailing
+        || border != oldDelegate.border
         || backgroundColor != oldDelegate.backgroundColor
         || actionsForegroundColor != oldDelegate.actionsForegroundColor;
   }
